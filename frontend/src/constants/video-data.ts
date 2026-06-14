@@ -35,6 +35,17 @@ export const MOCK_VIDEOS: VideoItem[] = [
     commentsCount: 4,
     sharesCount: 7,
     musicName: "Nhạc phim chính thức Sintel Orchestral Theme",
+  },
+  {
+    id: "vid-4",
+    videoUrl: "/16052532_1080_1920_25fps.mp4",
+    authorName: "@meo_con_tinh_nghich",
+    authorAvatar: DEFAULT_AVATAR,
+    description: "Chú mèo tinh nghịch chơi đùa siêu đáng yêu, xem đi xem lại vẫn thấy cưng xỉu luôn! 🐱🐾 #meo #cutecat #pet #dangyeu #xuhuong",
+    likesCount: 95,
+    commentsCount: 4,
+    sharesCount: 12,
+    musicName: "Giai điệu vui vẻ của chú mèo tinh nghịch (Bản gốc)",
   }
 ];
 
@@ -98,5 +109,11 @@ export const INITIAL_COMMENTS_MAP: Record<string, CommentItem[]> = {
     { id: "c-3-2", authorName: "@blender_chuyen_nghiep", authorAvatar: DEFAULT_AVATAR, content: "Tạo hình nhân vật và chú rồng nhìn nghệ thuật dã man.", createdAt: "8 giờ trước", likesCount: 14, isLiked: false },
     { id: "c-3-3", authorName: "@anime_lover", authorAvatar: DEFAULT_AVATAR, content: "Thích nhất đoạn rượt đuổi trên tuyết, kỹ xảo đỉnh cao.", createdAt: "1 ngày trước", likesCount: 7, isLiked: false },
     { id: "c-3-4", authorName: "@cgi_maker", authorAvatar: DEFAULT_AVATAR, content: "Học Blender 3D cũng vì bộ phim ngắn này, cảm hứng dồi dào.", createdAt: "3 ngày trước", likesCount: 5, isLiked: false }
+  ],
+  "vid-4": [
+    { id: "c-4-1", authorName: "@sen_yeu_meo", authorAvatar: DEFAULT_AVATAR, content: "Trông em mèo đáng yêu xỉu luôn á! Muốn bế về nuôi quá đi 😍", createdAt: "1 giờ trước", likesCount: 18, isLiked: false },
+    { id: "c-4-2", authorName: "@meo_vang", authorAvatar: DEFAULT_AVATAR, content: "Chắc em này đang đòi ăn rồi haha.", createdAt: "3 giờ trước", likesCount: 10, isLiked: true },
+    { id: "c-4-3", authorName: "@pet_life", authorAvatar: DEFAULT_AVATAR, content: "Chất lượng video nét thật sự, chú mèo dễ thương quá.", createdAt: "5 giờ trước", likesCount: 4, isLiked: false },
+    { id: "c-4-4", authorName: "@yeu_thu_cung", authorAvatar: DEFAULT_AVATAR, content: "Bình luận dạo mong được chú mèo chú ý hihi.", createdAt: "1 ngày trước", likesCount: 2, isLiked: false }
   ]
 };

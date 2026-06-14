@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Users } from "lucide-react";
 import { MOCK_VIDEOS } from "../../constants/video-data";
 import { VideoItem } from "../../types";
@@ -13,6 +13,8 @@ interface FeedItemWrapperProps {
   isActive: boolean;
   onActive: (id: string) => void;
   onToggleComments: () => void;
+  isFullscreen: boolean;
+  showControls: boolean;
 }
 
 function FeedItemWrapper({
@@ -20,6 +22,8 @@ function FeedItemWrapper({
   isActive,
   onActive,
   onToggleComments,
+  isFullscreen,
+  showControls,
 }: FeedItemWrapperProps) {
   const [ref, isIntersecting] = useIntersectionObserver({
     threshold: 0.6,
@@ -40,6 +44,8 @@ function FeedItemWrapper({
         video={video}
         isActive={isActive}
         onToggleComments={onToggleComments}
+        isFullscreen={isFullscreen}
+        showControls={showControls}
       />
     </div>
   );
@@ -53,6 +59,44 @@ export function VideoFeed() {
   const [isCommentsOpen, setIsCommentsOpen] = useState<boolean>(false);
   const [feedType, setFeedType] = useState<"for-you" | "following">("for-you");
   const [followedCreators, setFollowedCreators] = useState<string[]>([]);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showControls, setShowControls] = useState(true);
+  const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const triggerControlsVisibility = useCallback(() => {
+    setShowControls(true);
+    if (controlsTimeoutRef.current) {
+      clearTimeout(controlsTimeoutRef.current);
+    }
+    // Only auto-hide in fullscreen mode
+    if (!!document.fullscreenElement) {
+      controlsTimeoutRef.current = setTimeout(() => {
+        setShowControls(false);
+      }, 3000);
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleFs = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+      triggerControlsVisibility();
+    };
+    document.addEventListener("fullscreenchange", handleFs);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFs);
+      if (controlsTimeoutRef.current) {
+        clearTimeout(controlsTimeoutRef.current);
+      }
+    };
+  }, [triggerControlsVisibility]);
+
+  // Reset controls visibility when active video changes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      triggerControlsVisibility();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [activeVideoId, triggerControlsVisibility]);
 
   // 1. Load merged video list (mock videos + uploaded user videos) on mount and on changes
   useEffect(() => {
@@ -153,36 +197,46 @@ export function VideoFeed() {
   }, [feedType, filteredVideos, activeVideoId]);
 
   return (
-    <div id="video-feed-root" className="relative w-full h-full overflow-hidden bg-black">
+    <div
+      id="video-feed-root"
+      className={`relative w-full h-full overflow-hidden bg-black ${
+        isFullscreen ? (showControls ? "cursor-default" : "cursor-none") : "cursor-pointer"
+      }`}
+      onMouseMove={triggerControlsVisibility}
+      onTouchStart={triggerControlsVisibility}
+    >
       {/* Top Feed Tabs Selector Overlay */}
-      <div className="absolute top-4 left-0 right-0 z-30 flex justify-center gap-6 select-none pointer-events-none">
-        <button
-          onClick={() => setFeedType("for-you")}
-          className={`text-sm font-bold tracking-wide transition-all cursor-pointer relative py-1 pointer-events-auto filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] ${
-            feedType === "for-you"
-              ? "text-white scale-105"
-              : "text-white/60 hover:text-white"
-          }`}
-        >
-          Dành cho bạn
-          {feedType === "for-you" && (
-            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-brand-primary rounded-full shadow-[0_0_8px_var(--brand-primary)]" />
-          )}
-        </button>
-        <button
-          onClick={() => setFeedType("following")}
-          className={`text-sm font-bold tracking-wide transition-all cursor-pointer relative py-1 pointer-events-auto filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] ${
-            feedType === "following"
-              ? "text-white scale-105"
-              : "text-white/60 hover:text-white"
-          }`}
-        >
-          Đang theo dõi
-          {feedType === "following" && (
-            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-brand-secondary rounded-full shadow-[0_0_8px_var(--brand-secondary)]" />
-          )}
-        </button>
-      </div>
+      {(!isFullscreen || showControls) && (
+        <div className="absolute top-4 left-0 right-0 z-30 flex justify-center gap-6 select-none pointer-events-none">
+          <button
+            onClick={() => setFeedType("for-you")}
+            className={`text-sm font-bold tracking-wide transition-all cursor-pointer relative py-1 pointer-events-auto filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] ${
+              feedType === "for-you"
+                ? "text-white scale-105"
+                : "text-white/60 hover:text-white"
+            }`}
+          >
+            Dành cho bạn
+            {feedType === "for-you" && (
+              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-brand-primary rounded-full shadow-[0_0_8px_var(--brand-primary)]" />
+            )}
+          </button>
+          <button
+            onClick={() => setFeedType("following")}
+            className={`text-sm font-bold tracking-wide transition-all cursor-pointer relative py-1 pointer-events-auto filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] ${
+              feedType === "following"
+                ? "text-white scale-105"
+                : "text-white/60 hover:text-white"
+            }`}
+          >
+            Đang theo dõi
+            {feedType === "following" && (
+              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-brand-secondary rounded-full shadow-[0_0_8px_var(--brand-secondary)]" />
+            )}
+          </button>
+        </div>
+      )}
+
 
       {filteredVideos.length === 0 ? (
         <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-[var(--theme-sub-bg)] text-center select-none text-[var(--theme-text-primary)] gap-4 animate-fade-in transition-all duration-300">
@@ -215,6 +269,8 @@ export function VideoFeed() {
               isActive={video.id === activeVideoId}
               onActive={(id) => setActiveVideoId(id)}
               onToggleComments={() => setIsCommentsOpen((prev) => !prev)}
+              isFullscreen={isFullscreen}
+              showControls={showControls}
             />
           ))}
         </div>

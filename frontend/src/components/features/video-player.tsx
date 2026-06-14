@@ -8,6 +8,8 @@ interface VideoPlayerProps {
   videoUrl: string;
   isActive: boolean; // True if this video is currently in the active viewport
   onDoubleTap?: (x: number, y: number) => void;
+  isFullscreen: boolean;
+  showControls: boolean;
 }
 
 // Global volume syncing variables
@@ -23,7 +25,13 @@ const FIT_MODE_EVENT_NAME = "cyberfeed_fit_mode_change";
 const DOUBLE_CLICK_DELAY_MS = 250;
 const LONG_PRESS_DELAY_MS = 400;
 
-export function VideoPlayer({ videoUrl, isActive, onDoubleTap }: VideoPlayerProps) {
+export function VideoPlayer({
+  videoUrl,
+  isActive,
+  onDoubleTap,
+  isFullscreen,
+  showControls,
+}: VideoPlayerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
@@ -40,7 +48,6 @@ export function VideoPlayer({ videoUrl, isActive, onDoubleTap }: VideoPlayerProp
   const [showPlayOverlay, setShowPlayOverlay] = useState(false);
   const [overlayType, setOverlayType] = useState<"play" | "pause">("play");
   const [isFitMode, setIsFitMode] = useState(globalFitMode); // Initially load from synchronized global variable
-  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Dynamic video orientation detection states
   const [isLandscape, setIsLandscape] = useState(false);
@@ -345,16 +352,7 @@ export function VideoPlayer({ videoUrl, isActive, onDoubleTap }: VideoPlayerProp
     };
   }, []);
 
-  // Listen to fullscreen changes (ESC key exit support)
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
-    return () => {
-      document.removeEventListener("fullscreenchange", handleFullscreenChange);
-    };
-  }, []);
+
 
   // Drag seeking window-level release listener
   useEffect(() => {
@@ -478,11 +476,9 @@ export function VideoPlayer({ videoUrl, isActive, onDoubleTap }: VideoPlayerProp
 
     if (!document.fullscreenElement) {
       container.requestFullscreen()
-        .then(() => setIsFullscreen(true))
         .catch((err) => console.error("Error attempting to enable fullscreen", err));
     } else {
       document.exitFullscreen()
-        .then(() => setIsFullscreen(false))
         .catch((err) => console.error("Error attempting to exit fullscreen", err));
     }
   };
@@ -524,8 +520,13 @@ export function VideoPlayer({ videoUrl, isActive, onDoubleTap }: VideoPlayerProp
         onLoadedMetadata={handleVideoLoaded}
         onCanPlay={() => setIsLoading(false)}
         onPlaying={() => setIsLoading(false)}
-        className={`w-full h-full transition-all duration-300 ${(isFitMode && isLandscape) ? "object-contain bg-black" : "object-cover"
-          }`}
+        className={`w-full h-full transition-all duration-300 ${
+          isFullscreen
+            ? "object-contain bg-black"
+            : (isFitMode && isLandscape)
+            ? "object-contain bg-black"
+            : "object-cover"
+        }`}
       />
 
       {/* Loading Spinner Skeleton */}
@@ -559,8 +560,8 @@ export function VideoPlayer({ videoUrl, isActive, onDoubleTap }: VideoPlayerProp
         </div>
       )}
 
-      {/* Top Left Aspect Ratio Fit/Fill Toggle Button (Only visible for Widescreen landscape videos!) */}
-      {isLandscape && (
+      {/* Top Left Aspect Ratio Fit/Fill Toggle Button (Only visible for Widescreen landscape videos when not fullscreen!) */}
+      {(!isFullscreen || showControls) && isLandscape && (
         <button
           onClick={toggleFitMode}
           suppressHydrationWarning={true}
@@ -578,77 +579,83 @@ export function VideoPlayer({ videoUrl, isActive, onDoubleTap }: VideoPlayerProp
         </button>
       )}
 
-      {/* Vertical Volume Controller on the Left Side (Slides out from Left Border on Hover) */}
-      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-14 h-64 z-20 flex items-center group/volzone">
+      {/* Vertical Volume Controller on the Left Side (Slides out from Left Border on Hover, hidden in fullscreen) */}
+      {(!isFullscreen || showControls) && (
+        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-14 h-64 z-20 flex items-center group/volzone">
+          <div
+            className="ml-2.5 flex flex-col-reverse items-center gap-3 bg-black/50 backdrop-blur-md px-2 py-3 rounded-full border border-white/10 transition-all duration-300 -translate-x-[180%] opacity-0 scale-90 pointer-events-none group-hover/volzone:translate-x-0 group-hover/volzone:opacity-100 group-hover/volzone:scale-100 group-hover/volzone:pointer-events-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Mute/Unmute Icon Button */}
+            <button
+              onClick={toggleMute}
+              suppressHydrationWarning={true}
+              className="w-8 h-8 rounded-full flex items-center justify-center text-white hover:text-brand-primary hover:bg-white/10 transition-all cursor-pointer"
+            >
+              {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+            </button>
+
+            {/* Vertical Slider wrapper */}
+            <div className="h-24 flex items-center justify-center pb-1">
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                value={isMuted ? 0 : volume}
+                onChange={handleVolumeChange}
+                style={{ WebkitAppearance: "slider-vertical" } as React.CSSProperties}
+                className="h-20 w-1 accent-brand-primary bg-white/20 rounded-lg cursor-pointer"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Fullscreen Controls overlay (Top Right) */}
+      {(!isFullscreen || showControls) && (
         <div
-          className="ml-2.5 flex flex-col-reverse items-center gap-3 bg-black/50 backdrop-blur-md px-2 py-3 rounded-full border border-white/10 transition-all duration-300 -translate-x-[180%] opacity-0 scale-90 pointer-events-none group-hover/volzone:translate-x-0 group-hover/volzone:opacity-100 group-hover/volzone:scale-100 group-hover/volzone:pointer-events-auto"
+          className="absolute top-4 right-4 z-20 flex items-center bg-black/35 backdrop-blur-md p-2 rounded-full border border-white/10 opacity-70 hover:opacity-100 transition-opacity"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Mute/Unmute Icon Button */}
           <button
-            onClick={toggleMute}
+            onClick={toggleFullscreen}
             suppressHydrationWarning={true}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-white hover:text-brand-primary hover:bg-white/10 transition-all cursor-pointer"
+            className="w-7 h-7 text-white hover:text-brand-primary hover:bg-white/10 rounded-full transition-colors cursor-pointer flex items-center justify-center"
           >
-            {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+            {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
           </button>
+        </div>
+      )}
 
-          {/* Vertical Slider wrapper */}
-          <div className="h-24 flex items-center justify-center pb-1">
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.05"
-              value={isMuted ? 0 : volume}
-              onChange={handleVolumeChange}
-              style={{ WebkitAppearance: "slider-vertical" } as React.CSSProperties}
-              className="h-20 w-1 accent-brand-primary bg-white/20 rounded-lg cursor-pointer"
+      {/* Interactive Seekable Progress Bar Overlay (Bottom of Video Card, hidden in fullscreen) */}
+      {(!isFullscreen || showControls) && (
+        <div
+          ref={progressBarRef}
+          onMouseDown={handleProgressMouseDown}
+          onMouseMove={handleProgressMouseMove}
+          onTouchStart={handleProgressTouchStart}
+          onTouchMove={handleProgressTouchMove}
+          onClick={(e) => e.stopPropagation()} // Prevent trigger play/pause on seek click
+          className="absolute bottom-0 left-0 right-0 h-6 z-30 group flex items-end cursor-pointer select-none"
+        >
+          {/* Background track (hidden by default, only visible on hover or dragging) */}
+          <div className="w-full h-1 group-hover:h-2 bg-white/15 opacity-0 group-hover:opacity-100 group-active:opacity-100 transition-all duration-300 flex items-center relative">
+
+            {/* Active filled track */}
+            <div
+              className="h-full bg-gradient-to-r from-brand-primary to-brand-secondary shadow-[0_0_8px_var(--brand-primary)]"
+              style={{ width: `${progress}%` }}
+            />
+
+            {/* Scrubber Handle Dot (pops up on hover or drag) */}
+            <div
+              className="absolute w-2.5 h-2.5 rounded-full bg-white scale-0 group-hover:scale-100 group-active:scale-100 transition-transform -translate-x-1/2 shadow shadow-black/60 pointer-events-none"
+              style={{ left: `${progress}%` }}
             />
           </div>
         </div>
-      </div>
-
-      {/* Fullscreen Controls overlay (Top Right) */}
-      <div
-        className="absolute top-4 right-4 z-20 flex items-center bg-black/35 backdrop-blur-md p-2 rounded-full border border-white/10 opacity-70 hover:opacity-100 transition-opacity"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <button
-          onClick={toggleFullscreen}
-          suppressHydrationWarning={true}
-          className="w-7 h-7 text-white hover:text-brand-primary hover:bg-white/10 rounded-full transition-colors cursor-pointer flex items-center justify-center"
-        >
-          {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
-        </button>
-      </div>
-
-      {/* Interactive Seekable Progress Bar Overlay (Bottom of Video Card) */}
-      <div
-        ref={progressBarRef}
-        onMouseDown={handleProgressMouseDown}
-        onMouseMove={handleProgressMouseMove}
-        onTouchStart={handleProgressTouchStart}
-        onTouchMove={handleProgressTouchMove}
-        onClick={(e) => e.stopPropagation()} // Prevent trigger play/pause on seek click
-        className="absolute bottom-0 left-0 right-0 h-6 z-30 group flex items-end cursor-pointer select-none"
-      >
-        {/* Background track (hidden by default, only visible on hover or dragging) */}
-        <div className="w-full h-1 group-hover:h-2 bg-white/15 opacity-0 group-hover:opacity-100 group-active:opacity-100 transition-all duration-300 flex items-center relative">
-
-          {/* Active filled track */}
-          <div
-            className="h-full bg-gradient-to-r from-brand-primary to-brand-secondary shadow-[0_0_8px_var(--brand-primary)]"
-            style={{ width: `${progress}%` }}
-          />
-
-          {/* Scrubber Handle Dot (pops up on hover or drag) */}
-          <div
-            className="absolute w-2.5 h-2.5 rounded-full bg-white scale-0 group-hover:scale-100 group-active:scale-100 transition-transform -translate-x-1/2 shadow shadow-black/60 pointer-events-none"
-            style={{ left: `${progress}%` }}
-          />
-        </div>
-      </div>
+      )}
     </div>
   );
 }
