@@ -1,0 +1,38 @@
+export const UI_LABELS = {
+  appName: "Looking",
+  sidebar: {
+    home: "Trang chủ",
+    explore: "Khám phá",
+    following: "Đang follow",
+    friends: "Bạn bè",
+    profile: "Hồ sơ",
+    live: "Trực tiếp",
+  },
+  comments: {
+    title: "Bình luận",
+    placeholder: "Thêm bình luận công khai...",
+    post: "Đăng",
+    noComments: "Chưa có bình luận nào. Hãy là người đầu tiên bình luận!",
+    reply: "Trả lời",
+  },
+  share: {
+    title: "Chia sẻ đến",
+    copyLink: "Sao chép liên kết",
+    linkCopied: "Đã sao chép liên kết vào bộ nhớ tạm!",
+    facebook: "Facebook",
+    whatsapp: "WhatsApp",
+    messenger: "Messenger",
+    twitter: "Twitter",
+    embed: "Nhúng",
+  },
+  video: {
+    loading: "Đang tải video...",
+    mute: "Tắt tiếng",
+    unmute: "Bật tiếng",
+    play: "Phát",
+    pause: "Tạm dừng",
+    likes: "Thích",
+    comments: "Bình luận",
+    shares: "Chia sẻ",
+  },
+};
