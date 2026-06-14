@@ -49,7 +49,7 @@ export function VideoFeed() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   
   const [allVideos, setAllVideos] = useState<VideoItem[]>(MOCK_VIDEOS);
-  const [activeVideoId, setActiveVideoId] = useState<string>("");
+  const [activeVideoId, setActiveVideoId] = useState<string>(() => MOCK_VIDEOS[0]?.id || "");
   const [isCommentsOpen, setIsCommentsOpen] = useState<boolean>(false);
   const [feedType, setFeedType] = useState<"for-you" | "following">("for-you");
   const [followedCreators, setFollowedCreators] = useState<string[]>([]);

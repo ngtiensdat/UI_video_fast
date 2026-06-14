@@ -245,7 +245,7 @@ export function VideoPlayer({ videoUrl, isActive, onDoubleTap }: VideoPlayerProp
     }
   }, [isActive, videoUrl]);
 
-  // Sync autoplay state based on visibility (deferred isPlaying update)
+  // Sync autoplay state based on visibility (deferred isPlaying update with muted fallback)
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -258,8 +258,18 @@ export function VideoPlayer({ videoUrl, isActive, onDoubleTap }: VideoPlayerProp
             setTimeout(() => setIsPlaying(true), 0);
           })
           .catch((error) => {
-            console.log("Auto-play prevented by browser policy", error);
-            setTimeout(() => setIsPlaying(false), 0);
+            console.log("Auto-play prevented by browser policy, trying muted fallback...", error);
+            // Fallback: mute video and play
+            video.muted = true;
+            setIsMuted(true);
+            video.play()
+              .then(() => {
+                setTimeout(() => setIsPlaying(true), 0);
+              })
+              .catch((err) => {
+                console.error("Muted auto-play also failed", err);
+                setTimeout(() => setIsPlaying(false), 0);
+              });
           });
       }
     } else {
@@ -508,6 +518,7 @@ export function VideoPlayer({ videoUrl, isActive, onDoubleTap }: VideoPlayerProp
         src={videoUrl}
         loop
         playsInline
+        autoPlay={isActive}
         muted={isMuted}
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleVideoLoaded}
