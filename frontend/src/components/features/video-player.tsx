@@ -79,6 +79,16 @@ export function VideoPlayer({ videoUrl, isActive, onDoubleTap }: VideoPlayerProp
     }
   }, []);
 
+  // Check if video is already loaded (handles cached videos where onLoadedMetadata might not fire in time)
+  useEffect(() => {
+    setIsLoading(true);
+    const video = videoRef.current;
+    if (video && video.readyState >= 1) {
+      setIsLoading(false);
+      setIsLandscape(video.videoWidth > video.videoHeight);
+    }
+  }, [isActive, videoUrl]);
+
   // Sync autoplay state based on visibility
   useEffect(() => {
     const video = videoRef.current;
@@ -102,6 +112,35 @@ export function VideoPlayer({ videoUrl, isActive, onDoubleTap }: VideoPlayerProp
       setIsPlaying(false);
     }
   }, [isActive]);
+
+  // Listen to keyboard spacebar to toggle play/pause
+  useEffect(() => {
+    if (!isActive) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === "Space") {
+        // Ignore if user is typing in an input or textarea
+        const activeEl = document.activeElement;
+        if (
+          activeEl &&
+          (activeEl.tagName === "INPUT" ||
+            activeEl.tagName === "TEXTAREA" ||
+            activeEl.getAttribute("contenteditable") === "true")
+        ) {
+          return;
+        }
+
+        // Prevent default spacebar scrolling behavior
+        e.preventDefault();
+        togglePlay();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isActive, isPlaying]);
 
   // Sync volume with physical video element
   useEffect(() => {
@@ -179,6 +218,8 @@ export function VideoPlayer({ videoUrl, isActive, onDoubleTap }: VideoPlayerProp
   const dispatchVolumeUpdate = (newVol: number, newMuted: boolean) => {
     globalVolume = newVol;
     globalMuted = newMuted;
+    setVolume(newVol);
+    setIsMuted(newMuted);
     if (typeof window !== "undefined") {
       localStorage.setItem("looking_volume", newVol.toString());
       localStorage.setItem("looking_muted", newMuted.toString());
@@ -394,6 +435,7 @@ export function VideoPlayer({ videoUrl, isActive, onDoubleTap }: VideoPlayerProp
     e.stopPropagation(); // Avoid play/pause trigger
     const nextFit = !isFitMode;
     globalFitMode = nextFit;
+    setIsFitMode(nextFit);
     if (typeof window !== "undefined") {
       localStorage.setItem("looking_fit_mode", nextFit.toString());
     }
@@ -406,7 +448,7 @@ export function VideoPlayer({ videoUrl, isActive, onDoubleTap }: VideoPlayerProp
 
   const toggleFullscreen = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const container = containerRef.current;
+    const container = document.getElementById("video-feed-root") || containerRef.current;
     if (!container) return;
 
     if (!document.fullscreenElement) {
@@ -426,7 +468,6 @@ export function VideoPlayer({ videoUrl, isActive, onDoubleTap }: VideoPlayerProp
     const currentPercent = (video.currentTime / video.duration) * 100;
     setProgress(currentPercent || 0);
   };
-
   // Measures dynamic video metadata dimensions on load
   const handleVideoLoaded = (e: React.SyntheticEvent<HTMLVideoElement, Event>) => {
     setIsLoading(false);
@@ -455,7 +496,6 @@ export function VideoPlayer({ videoUrl, isActive, onDoubleTap }: VideoPlayerProp
         muted={isMuted}
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleVideoLoaded}
-        onLoadStart={() => setIsLoading(true)}
         onCanPlay={() => setIsLoading(false)}
         onPlaying={() => setIsLoading(false)}
         className={`w-full h-full transition-all duration-300 ${(isFitMode && isLandscape) ? "object-contain bg-black" : "object-cover"
@@ -485,9 +525,9 @@ export function VideoPlayer({ videoUrl, isActive, onDoubleTap }: VideoPlayerProp
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
           <div className="w-16 h-16 rounded-full bg-black/40 border border-white/20 flex items-center justify-center animate-ping-once text-white shadow-xl shadow-brand-primary/10 backdrop-blur-sm">
             {overlayType === "play" ? (
-              <Play className="w-8 h-8 text-brand-primary fill-current translate-x-0.5" />
-            ) : (
               <Pause className="w-8 h-8 text-brand-secondary fill-current" />
+            ) : (
+              <Play className="w-8 h-8 text-brand-primary fill-current translate-x-0.5" />
             )}
           </div>
         </div>

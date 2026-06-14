@@ -147,7 +147,7 @@ export function VideoFeed() {
   }, [feedType, filteredVideos, activeVideoId]);
 
   return (
-    <div className="relative w-full h-full overflow-hidden bg-black">
+    <div id="video-feed-root" className="relative w-full h-full overflow-hidden bg-black">
       {/* Top Feed Tabs Selector Overlay */}
       <div className="absolute top-4 left-0 right-0 z-30 flex justify-center gap-6 select-none pointer-events-none">
         <button

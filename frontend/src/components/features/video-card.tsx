@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Heart, MessageCircle, Share2, Music2, Plus, Check, MoreHorizontal } from "lucide-react";
+import { Heart, MessageCircle, Share2, Music2, MoreHorizontal } from "lucide-react";
 import { VideoItem } from "../../types";
 import { VideoPlayer } from "./video-player";
 import { ShareDialog } from "./share-dialog";
@@ -209,10 +209,51 @@ export function VideoCard({ video, isActive, onToggleComments }: VideoCardProps)
 
         {/* Bottom-Left Information Overlay */}
         <div className="absolute bottom-5 left-4 right-16 z-20 text-white flex flex-col gap-2 pointer-events-none">
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-base hover:underline pointer-events-auto cursor-pointer">
+          <div className="flex items-center gap-2.5 pointer-events-auto">
+            {/* Author Avatar */}
+            <img
+              src={video.authorAvatar}
+              alt="Author Avatar"
+              className="w-9 h-9 rounded-full object-cover border border-white/20 hover:scale-105 transition-transform bg-slate-800"
+            />
+            {/* Author Username */}
+            <span className="font-bold text-base hover:underline cursor-pointer">
               {video.authorName}
             </span>
+            {/* Follow/Subscribe Button */}
+            {!isFollowed ? (
+              <button
+                onClick={handleFollowToggle}
+                className="bg-white text-black font-bold text-xs px-3.5 py-1.5 rounded-full hover:bg-neutral-200 active:scale-95 transition-all select-none cursor-pointer"
+              >
+                Đăng ký
+              </button>
+            ) : (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsFollowed(false);
+                  const saved = localStorage.getItem("looking_followed_users");
+                  if (saved) {
+                    try {
+                      const list: string[] = JSON.parse(saved);
+                      const filtered = list.filter((name) => name !== video.authorName);
+                      localStorage.setItem("looking_followed_users", JSON.stringify(filtered));
+                    } catch (err) {
+                      console.error(err);
+                    }
+                  }
+                  window.dispatchEvent(
+                    new CustomEvent("looking_follow_change", {
+                      detail: { authorName: video.authorName, followed: false },
+                    })
+                  );
+                }}
+                className="bg-white/10 text-white border border-white/20 font-bold text-xs px-3.5 py-1.5 rounded-full hover:bg-white/20 active:scale-95 transition-all select-none cursor-pointer"
+              >
+                Đã đăng ký
+              </button>
+            )}
           </div>
           <div className="text-sm text-slate-200 leading-relaxed drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] pointer-events-auto">
             <p className={isDescExpanded ? "" : "line-clamp-2"}>
@@ -244,32 +285,7 @@ export function VideoCard({ video, isActive, onToggleComments }: VideoCardProps)
         </div>
 
         {/* Right-Side Interaction Panel (Overlaid Glassmorphic Columns) */}
-        <div className="absolute right-3 bottom-20 z-20 flex flex-col items-center gap-5">
-          {/* Author Profile Picture Widget */}
-          <div className="relative mb-2">
-            <img
-              src={video.authorAvatar}
-              alt="Author Avatar"
-              className="w-12 h-12 rounded-full object-cover border-2 border-white pointer-events-auto cursor-pointer hover:scale-105 transition-transform bg-slate-800"
-            />
-            {!isFollowed && (
-              <button
-                onClick={handleFollowToggle}
-                suppressHydrationWarning={true}
-                className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-5 h-5 bg-brand-secondary hover:brightness-110 text-white rounded-full flex items-center justify-center border border-black transition-all duration-300 pointer-events-auto cursor-pointer hover:scale-110 active:scale-90"
-              >
-                <Plus className="w-3.5 h-3.5" />
-              </button>
-            )}
-            {isFollowed && showFollowCheck && (
-              <div
-                className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-5 h-5 bg-emerald-500 text-white rounded-full flex items-center justify-center border border-black animate-scale-in"
-              >
-                <Check className="w-3 h-3" />
-              </div>
-            )}
-          </div>
-
+        <div className="absolute right-3 bottom-20 z-20 flex flex-col items-center gap-3">
           {/* Like Interaction Button */}
           <button
             onClick={handleLikeToggle}
