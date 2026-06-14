@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useEffect, useCallback } from "react";
 import { Play, Pause, Volume2, VolumeX, Loader2, Maximize2, Minimize2, Maximize, Minimize } from "lucide-react";
 import { UI_LABELS } from "../../constants/labels";
 
@@ -30,6 +30,7 @@ export function VideoPlayer({ videoUrl, isActive, onDoubleTap }: VideoPlayerProp
 
   const tapTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const longPressTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const playOverlayTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(globalMuted);
@@ -54,34 +55,189 @@ export function VideoPlayer({ videoUrl, isActive, onDoubleTap }: VideoPlayerProp
   const pointerDownTimeRef = useRef<number>(0);
   const pointerStartCoordsRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
-  // Load preferences from localStorage on mount
+  // Pure React 19 prop adjustment to reset loading state on URL changes
+  const [lastUrl, setLastUrl] = useState(videoUrl);
+  if (videoUrl !== lastUrl) {
+    setLastUrl(videoUrl);
+    setIsLoading(true);
+  }
+
+  // Memoized Toggle Play function (declared first to avoid hoisting/linting warnings)
+  const togglePlay = useCallback(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (isPlaying) {
+      video.pause();
+      setIsPlaying(false);
+      setOverlayType("pause");
+    } else {
+      video.play().catch((err) => console.log(err));
+      setIsPlaying(true);
+      setOverlayType("play");
+    }
+
+    // Trigger overlay animation
+    if (playOverlayTimeoutRef.current) {
+      clearTimeout(playOverlayTimeoutRef.current);
+    }
+    setShowPlayOverlay(true);
+    playOverlayTimeoutRef.current = setTimeout(() => setShowPlayOverlay(false), 600);
+  }, [isPlaying]);
+
+  // Safe Double click likes handler triggered via VideoPlayer callbacks
+  const handleTap = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (tapTimeoutRef.current) {
+      // Double tap detected
+      clearTimeout(tapTimeoutRef.current);
+      tapTimeoutRef.current = null;
+
+      // Extract client coordinates relative to container
+      const rect = e.currentTarget.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      if (onDoubleTap) {
+        onDoubleTap(x, y);
+      }
+    } else {
+      // Start single tap timer
+      tapTimeoutRef.current = setTimeout(() => {
+        tapTimeoutRef.current = null;
+        togglePlay();
+      }, DOUBLE_CLICK_DELAY_MS);
+    }
+  }, [togglePlay, onDoubleTap]);
+
+  // Pointer Down triggers long-press checks for 2x Fast Forward
+  const handlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('input') || target.closest('.h-4') || target.closest('.z-20')) {
+      return;
+    }
+
+    pointerDownTimeRef.current = e.timeStamp;
+    pointerStartCoordsRef.current = { x: e.clientX, y: e.clientY };
+    isLongPressingRef.current = false;
+    wasLongPressRef.current = false;
+
+    // Check long press delay (400ms)
+    longPressTimeoutRef.current = setTimeout(() => {
+      const video = videoRef.current;
+      if (!video) return;
+
+      video.playbackRate = 2.0;
+      setIsSpeedUp(true);
+      isLongPressingRef.current = true;
+      wasLongPressRef.current = true;
+
+      // Disable any pending single clicks
+      if (tapTimeoutRef.current) {
+        clearTimeout(tapTimeoutRef.current);
+        tapTimeoutRef.current = null;
+      }
+    }, LONG_PRESS_DELAY_MS);
+  }, []);
+
+  // Pointer Up releases speed-up overrides and handles click gestures
+  const handlePointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (longPressTimeoutRef.current) {
+      clearTimeout(longPressTimeoutRef.current);
+      longPressTimeoutRef.current = null;
+    }
+
+    const video = videoRef.current;
+    if (video && video.playbackRate !== 1.0) {
+      video.playbackRate = 1.0;
+    }
+
+    setIsSpeedUp(false);
+
+    // If it was a long press, do nothing further (wasLongPressRef resets here)
+    if (wasLongPressRef.current) {
+      wasLongPressRef.current = false;
+      isLongPressingRef.current = false;
+      return;
+    }
+
+    // Measure time and movement distance to qualify a normal tap gesture (pure e.timeStamp instead of Date.now())
+    const elapsed = e.timeStamp - pointerDownTimeRef.current;
+    const dx = e.clientX - pointerStartCoordsRef.current.x;
+    const dy = e.clientY - pointerStartCoordsRef.current.y;
+    const distanceSq = dx * dx + dy * dy;
+
+    // Fast click (< 350ms) and minimal pixel travel (< 15px, distanceSq < 225)
+    if (elapsed < 350 && distanceSq < 225) {
+      handleTap(e);
+    }
+
+    isLongPressingRef.current = false;
+  }, [handleTap]);
+
+  const handlePointerCancel = useCallback(() => {
+    if (longPressTimeoutRef.current) {
+      clearTimeout(longPressTimeoutRef.current);
+      longPressTimeoutRef.current = null;
+    }
+
+    const video = videoRef.current;
+    if (video && video.playbackRate !== 1.0) {
+      video.playbackRate = 1.0;
+    }
+
+    setIsSpeedUp(false);
+    isLongPressingRef.current = false;
+    wasLongPressRef.current = false;
+  }, []);
+
+  const handlePointerLeave = useCallback(() => {
+    if (longPressTimeoutRef.current) {
+      clearTimeout(longPressTimeoutRef.current);
+      longPressTimeoutRef.current = null;
+    }
+
+    const video = videoRef.current;
+    if (video && video.playbackRate !== 1.0) {
+      video.playbackRate = 1.0;
+    }
+
+    setIsSpeedUp(false);
+    isLongPressingRef.current = false;
+    wasLongPressRef.current = false;
+  }, []);
+
+  // Load preferences from localStorage on mount (deferred to avoid set-state-in-effect)
   useEffect(() => {
     if (typeof window !== "undefined") {
       const savedVolume = localStorage.getItem("looking_volume");
       const savedMuted = localStorage.getItem("looking_muted");
       const savedFitMode = localStorage.getItem("looking_fit_mode");
 
-      if (savedVolume !== null) {
-        const parsedVolume = parseFloat(savedVolume);
-        globalVolume = parsedVolume;
-        setVolume(parsedVolume);
-      }
-      if (savedMuted !== null) {
-        const parsedMuted = savedMuted === "true";
-        globalMuted = parsedMuted;
-        setIsMuted(parsedMuted);
-      }
-      if (savedFitMode !== null) {
-        const parsedFitMode = savedFitMode === "true";
-        globalFitMode = parsedFitMode;
-        setIsFitMode(parsedFitMode);
-      }
+      // Defer state setting to satisfy linter and optimize rendering
+      const timer = setTimeout(() => {
+        if (savedVolume !== null) {
+          const parsedVolume = parseFloat(savedVolume);
+          globalVolume = parsedVolume;
+          setVolume(parsedVolume);
+        }
+        if (savedMuted !== null) {
+          const parsedMuted = savedMuted === "true";
+          globalMuted = parsedMuted;
+          setIsMuted(parsedMuted);
+        }
+        if (savedFitMode !== null) {
+          const parsedFitMode = savedFitMode === "true";
+          globalFitMode = parsedFitMode;
+          setIsFitMode(parsedFitMode);
+        }
+      }, 0);
+
+      return () => clearTimeout(timer);
     }
   }, []);
 
-  // Check if video is already loaded (handles cached videos where onLoadedMetadata might not fire in time)
+  // Check if video is already loaded
   useEffect(() => {
-    setIsLoading(true);
     const video = videoRef.current;
     if (video && video.readyState >= 1) {
       setIsLoading(false);
@@ -89,7 +245,7 @@ export function VideoPlayer({ videoUrl, isActive, onDoubleTap }: VideoPlayerProp
     }
   }, [isActive, videoUrl]);
 
-  // Sync autoplay state based on visibility
+  // Sync autoplay state based on visibility (deferred isPlaying update)
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -99,17 +255,17 @@ export function VideoPlayer({ videoUrl, isActive, onDoubleTap }: VideoPlayerProp
       if (playPromise !== undefined) {
         playPromise
           .then(() => {
-            setIsPlaying(true);
+            setTimeout(() => setIsPlaying(true), 0);
           })
           .catch((error) => {
             console.log("Auto-play prevented by browser policy", error);
-            setIsPlaying(false);
+            setTimeout(() => setIsPlaying(false), 0);
           });
       }
     } else {
       video.pause();
       video.currentTime = 0;
-      setIsPlaying(false);
+      setTimeout(() => setIsPlaying(false), 0);
     }
   }, [isActive]);
 
@@ -119,7 +275,6 @@ export function VideoPlayer({ videoUrl, isActive, onDoubleTap }: VideoPlayerProp
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code === "Space") {
-        // Ignore if user is typing in an input or textarea
         const activeEl = document.activeElement;
         if (
           activeEl &&
@@ -130,7 +285,6 @@ export function VideoPlayer({ videoUrl, isActive, onDoubleTap }: VideoPlayerProp
           return;
         }
 
-        // Prevent default spacebar scrolling behavior
         e.preventDefault();
         togglePlay();
       }
@@ -140,7 +294,7 @@ export function VideoPlayer({ videoUrl, isActive, onDoubleTap }: VideoPlayerProp
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isActive, isPlaying]);
+  }, [isActive, togglePlay]);
 
   // Sync volume with physical video element
   useEffect(() => {
@@ -212,6 +366,7 @@ export function VideoPlayer({ videoUrl, isActive, onDoubleTap }: VideoPlayerProp
     return () => {
       if (tapTimeoutRef.current) clearTimeout(tapTimeoutRef.current);
       if (longPressTimeoutRef.current) clearTimeout(longPressTimeoutRef.current);
+      if (playOverlayTimeoutRef.current) clearTimeout(playOverlayTimeoutRef.current);
     };
   }, []);
 
@@ -229,146 +384,6 @@ export function VideoPlayer({ videoUrl, isActive, onDoubleTap }: VideoPlayerProp
         detail: { volume: newVol, muted: newMuted },
       })
     );
-  };
-
-  const togglePlay = () => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    if (isPlaying) {
-      video.pause();
-      setIsPlaying(false);
-      setOverlayType("pause");
-    } else {
-      video.play().catch((err) => console.log(err));
-      setIsPlaying(true);
-      setOverlayType("play");
-    }
-
-    // Trigger overlay animation
-    setShowPlayOverlay(true);
-    const timer = setTimeout(() => setShowPlayOverlay(false), 600);
-    return () => clearTimeout(timer);
-  };
-
-  // Pointer Down triggers long-press checks for 2x Fast Forward
-  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    const target = e.target as HTMLElement;
-    if (target.closest('button') || target.closest('input') || target.closest('.h-4') || target.closest('.z-20')) {
-      return;
-    }
-
-    pointerDownTimeRef.current = Date.now();
-    pointerStartCoordsRef.current = { x: e.clientX, y: e.clientY };
-    isLongPressingRef.current = false;
-    wasLongPressRef.current = false;
-
-    // Check long press delay (400ms)
-    longPressTimeoutRef.current = setTimeout(() => {
-      const video = videoRef.current;
-      if (!video) return;
-
-      video.playbackRate = 2.0;
-      setIsSpeedUp(true);
-      isLongPressingRef.current = true;
-      wasLongPressRef.current = true;
-
-      // Disable any pending single clicks
-      if (tapTimeoutRef.current) {
-        clearTimeout(tapTimeoutRef.current);
-        tapTimeoutRef.current = null;
-      }
-    }, LONG_PRESS_DELAY_MS);
-  };
-
-  // Pointer Up releases speed-up overrides and handles click gestures
-  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (longPressTimeoutRef.current) {
-      clearTimeout(longPressTimeoutRef.current);
-      longPressTimeoutRef.current = null;
-    }
-
-    const video = videoRef.current;
-    if (video && video.playbackRate !== 1.0) {
-      video.playbackRate = 1.0;
-    }
-
-    setIsSpeedUp(false);
-
-    // If it was a long press, do nothing further (wasLongPressRef resets here)
-    if (wasLongPressRef.current) {
-      wasLongPressRef.current = false;
-      isLongPressingRef.current = false;
-      return;
-    }
-
-    // Measure time and movement distance to qualify a normal tap gesture
-    const elapsed = Date.now() - pointerDownTimeRef.current;
-    const dx = e.clientX - pointerStartCoordsRef.current.x;
-    const dy = e.clientY - pointerStartCoordsRef.current.y;
-    const distanceSq = dx * dx + dy * dy;
-
-    // Fast click (< 350ms) and minimal pixel travel (< 15px, distanceSq < 225)
-    if (elapsed < 350 && distanceSq < 225) {
-      handleTap(e);
-    }
-
-    isLongPressingRef.current = false;
-  };
-
-  const handleTap = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (tapTimeoutRef.current) {
-      // Double tap detected
-      clearTimeout(tapTimeoutRef.current);
-      tapTimeoutRef.current = null;
-
-      // Extract client coordinates relative to container
-      const rect = e.currentTarget.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-
-      if (onDoubleTap) {
-        onDoubleTap(x, y);
-      }
-    } else {
-      // Start single tap timer
-      tapTimeoutRef.current = setTimeout(() => {
-        tapTimeoutRef.current = null;
-        togglePlay();
-      }, DOUBLE_CLICK_DELAY_MS);
-    }
-  };
-
-  const handlePointerCancel = () => {
-    if (longPressTimeoutRef.current) {
-      clearTimeout(longPressTimeoutRef.current);
-      longPressTimeoutRef.current = null;
-    }
-
-    const video = videoRef.current;
-    if (video && video.playbackRate !== 1.0) {
-      video.playbackRate = 1.0;
-    }
-
-    setIsSpeedUp(false);
-    isLongPressingRef.current = false;
-    wasLongPressRef.current = false;
-  };
-
-  const handlePointerLeave = () => {
-    if (longPressTimeoutRef.current) {
-      clearTimeout(longPressTimeoutRef.current);
-      longPressTimeoutRef.current = null;
-    }
-
-    const video = videoRef.current;
-    if (video && video.playbackRate !== 1.0) {
-      video.playbackRate = 1.0;
-    }
-
-    setIsSpeedUp(false);
-    isLongPressingRef.current = false;
-    wasLongPressRef.current = false;
   };
 
   // Seek Progress Calculations

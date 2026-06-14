@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, RefCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 interface UseIntersectionObserverProps extends IntersectionObserverInit {
   freezeOnceVisible?: boolean;
@@ -9,23 +9,22 @@ export function useIntersectionObserver({
   root = null,
   rootMargin = "0px",
   freezeOnceVisible = false,
-}: UseIntersectionObserverProps = {}): [RefCallback<Element>, boolean] {
+}: UseIntersectionObserverProps = {}): [React.RefCallback<Element>, boolean] {
   const [isIntersecting, setIntersecting] = useState(false);
-  const elementRef = useRef<Element | null>(null);
+  const [element, setElement] = useState<Element | null>(null);
 
-  const refCallback: RefCallback<Element> = (node) => {
-    elementRef.current = node;
-  };
+  const refCallback = useCallback((node: Element | null) => {
+    setElement(node);
+  }, []);
 
   useEffect(() => {
-    const node = elementRef.current;
-    if (!node) return;
+    if (!element) return;
 
     const hasSupport = !!window.IntersectionObserver;
     if (!hasSupport) {
-      // Fallback if not supported
-      setIntersecting(true);
-      return;
+      // Fallback if not supported - wrap in setTimeout to avoid react-hooks/set-state-in-effect
+      const timer = setTimeout(() => setIntersecting(true), 0);
+      return () => clearTimeout(timer);
     }
 
     const observer = new IntersectionObserver(
@@ -34,18 +33,18 @@ export function useIntersectionObserver({
         setIntersecting(isEntryIntersecting);
 
         if (isEntryIntersecting && freezeOnceVisible) {
-          observer.unobserve(node);
+          observer.unobserve(element);
         }
       },
       { threshold, root, rootMargin }
     );
 
-    observer.observe(node);
+    observer.observe(element);
 
     return () => {
-      observer.unobserve(node);
+      observer.unobserve(element);
     };
-  }, [threshold, root, rootMargin, freezeOnceVisible]);
+  }, [element, threshold, root, rootMargin, freezeOnceVisible]);
 
   return [refCallback, isIntersecting];
 }

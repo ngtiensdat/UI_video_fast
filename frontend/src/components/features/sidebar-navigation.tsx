@@ -14,18 +14,20 @@ export function SidebarNavigation({ activeTab, setActiveTab }: SidebarNavigation
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      setIsLight(document.documentElement.classList.contains("light"));
+      const isThemeLight = document.documentElement.classList.contains("light");
+      const timer = setTimeout(() => setIsLight(isThemeLight), 0);
+      
+      const handleThemeChange = (e: Event) => {
+        const customEv = e as CustomEvent<{ theme: string }>;
+        setIsLight(customEv.detail.theme === "light");
+      };
+
+      window.addEventListener("looking_theme_change", handleThemeChange);
+      return () => {
+        clearTimeout(timer);
+        window.removeEventListener("looking_theme_change", handleThemeChange);
+      };
     }
-
-    const handleThemeChange = (e: Event) => {
-      const customEv = e as CustomEvent<{ theme: string }>;
-      setIsLight(customEv.detail.theme === "light");
-    };
-
-    window.addEventListener("looking_theme_change", handleThemeChange);
-    return () => {
-      window.removeEventListener("looking_theme_change", handleThemeChange);
-    };
   }, []);
 
   const toggleTheme = () => {

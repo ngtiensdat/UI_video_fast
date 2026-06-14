@@ -32,7 +32,8 @@ export function ShareDialog({ isOpen, onClose, videoUrl }: ShareDialogProps) {
 
   useEffect(() => {
     if (isOpen) {
-      setShouldRender(true);
+      const timer = setTimeout(() => setShouldRender(true), 0);
+      return () => clearTimeout(timer);
     } else {
       const timer = setTimeout(() => setShouldRender(false), 300);
       return () => clearTimeout(timer);

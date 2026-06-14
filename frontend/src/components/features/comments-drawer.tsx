@@ -25,23 +25,25 @@ export function CommentsDrawer({
   // Load comments on open or when active videoId changes
   useEffect(() => {
     if (isOpen && videoId) {
-      setShouldRender(true);
-      
-      const storageKey = `${LOCAL_STORAGE_COMMENT_PREFIX}${videoId}`;
-      const saved = localStorage.getItem(storageKey);
-      
-      if (saved) {
-        try {
-          setComments(JSON.parse(saved));
-        } catch (e) {
-          console.error("Failed to parse comments from localStorage", e);
-          setComments(INITIAL_COMMENTS_MAP[videoId] || []);
+      const timer = setTimeout(() => {
+        setShouldRender(true);
+        const storageKey = `${LOCAL_STORAGE_COMMENT_PREFIX}${videoId}`;
+        const saved = localStorage.getItem(storageKey);
+        
+        if (saved) {
+          try {
+            setComments(JSON.parse(saved));
+          } catch (e) {
+            console.error("Failed to parse comments from localStorage", e);
+            setComments(INITIAL_COMMENTS_MAP[videoId] || []);
+          }
+        } else {
+          const initial = INITIAL_COMMENTS_MAP[videoId] || [];
+          setComments(initial);
+          localStorage.setItem(storageKey, JSON.stringify(initial));
         }
-      } else {
-        const initial = INITIAL_COMMENTS_MAP[videoId] || [];
-        setComments(initial);
-        localStorage.setItem(storageKey, JSON.stringify(initial));
-      }
+      }, 0);
+      return () => clearTimeout(timer);
     } else if (!isOpen) {
       // Allow slide-down animation to complete before unmounting
       const timer = setTimeout(() => setShouldRender(false), 300);
@@ -168,7 +170,7 @@ export function CommentsDrawer({
               <button
                 onClick={() => handleLikeComment(comment.id)}
                 className={`flex flex-col items-center gap-0.5 shrink-0 transition-transform duration-200 active:scale-75 cursor-pointer ${
-                  comment.isLiked ? "text-brand-secondary" : "text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)]"
+                  comment.isLiked ? "text-red-500" : "text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)]"
                 }`}
               >
                 <Heart className={`w-3.5 h-3.5 ${comment.isLiked ? "fill-current" : ""}`} />

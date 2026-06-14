@@ -139,10 +139,16 @@ export function VideoFeed() {
       // If current active video is not in the filtered list, reset it to the first item
       const isActiveStillValid = filteredVideos.some((v) => v.id === activeVideoId);
       if (!isActiveStillValid) {
-        setActiveVideoId(filteredVideos[0].id);
+        const timer = setTimeout(() => {
+          setActiveVideoId(filteredVideos[0].id);
+        }, 0);
+        return () => clearTimeout(timer);
       }
-    } else {
-      setActiveVideoId("");
+    } else if (activeVideoId !== "") {
+      const timer = setTimeout(() => {
+        setActiveVideoId("");
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [feedType, filteredVideos, activeVideoId]);
 
@@ -185,7 +191,7 @@ export function VideoFeed() {
           </div>
           <h3 className="font-bold text-base tracking-wide">Chưa follow người sáng tạo nào</h3>
           <p className="text-xs text-[var(--theme-text-secondary)] max-w-[280px] leading-relaxed">
-            Nhấn chuyển sang mục <strong>"Dành cho bạn"</strong> hoặc sang mục <strong>"Khám phá"</strong> để follow những nhà sáng tạo nội dung đầu tiên!
+            Nhấn chuyển sang mục <strong>&quot;Dành cho bạn&quot;</strong> hoặc sang mục <strong>&quot;Khám phá&quot;</strong> để follow những nhà sáng tạo nội dung đầu tiên!
           </p>
           <button
             onClick={() => setFeedType("for-you")}

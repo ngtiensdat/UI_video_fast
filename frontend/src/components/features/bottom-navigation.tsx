@@ -7,9 +7,10 @@ import { UI_LABELS } from "../../constants/labels";
 interface BottomNavigationProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
+  onUploadClick: () => void;
 }
 
-export function BottomNavigation({ activeTab, setActiveTab }: BottomNavigationProps) {
+export function BottomNavigation({ activeTab, setActiveTab, onUploadClick }: BottomNavigationProps) {
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 border-t border-[var(--theme-border)] bg-[var(--theme-panel-bg)]/90 backdrop-blur-lg flex items-center justify-around px-4 z-40 text-[var(--theme-text-secondary)] select-none transition-all duration-300">
       {/* Home Tab */}
@@ -40,7 +41,7 @@ export function BottomNavigation({ activeTab, setActiveTab }: BottomNavigationPr
       <button
         suppressHydrationWarning
         className="relative flex items-center justify-center w-12 h-8 mx-2 rounded-lg bg-[var(--theme-text-primary)] transition-transform duration-200 active:scale-95 cursor-pointer"
-        onClick={() => setActiveTab("home")}
+        onClick={onUploadClick}
       >
         {/* Neon blue and red backing layers */}
         <div className="absolute inset-y-0 -left-1 w-6 rounded-lg bg-brand-primary -z-10 translate-x-0.5 animate-pulse"></div>

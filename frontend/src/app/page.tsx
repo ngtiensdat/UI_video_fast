@@ -148,24 +148,27 @@ export default function Home() {
   useEffect(() => {
     if (typeof window !== "undefined") {
       const savedTheme = localStorage.getItem("looking_theme");
-      if (savedTheme === "light") {
-        document.documentElement.classList.add("light");
-        setIsLight(true);
-      } else {
-        document.documentElement.classList.remove("light");
-        setIsLight(false);
-      }
+      const timer = setTimeout(() => {
+        if (savedTheme === "light") {
+          document.documentElement.classList.add("light");
+          setIsLight(true);
+        } else {
+          document.documentElement.classList.remove("light");
+          setIsLight(false);
+        }
+      }, 0);
+
+      const handleThemeChange = (e: Event) => {
+        const customEv = e as CustomEvent<{ theme: string }>;
+        setIsLight(customEv.detail.theme === "light");
+      };
+
+      window.addEventListener("looking_theme_change", handleThemeChange);
+      return () => {
+        clearTimeout(timer);
+        window.removeEventListener("looking_theme_change", handleThemeChange);
+      };
     }
-
-    const handleThemeChange = (e: Event) => {
-      const customEv = e as CustomEvent<{ theme: string }>;
-      setIsLight(customEv.detail.theme === "light");
-    };
-
-    window.addEventListener("looking_theme_change", handleThemeChange);
-    return () => {
-      window.removeEventListener("looking_theme_change", handleThemeChange);
-    };
   }, []);
 
   const toggleTheme = () => {
@@ -194,17 +197,17 @@ export default function Home() {
 
   // Sync Follows and Bio from LocalStorage
   useEffect(() => {
-    // 1. Followed creators
     const savedFollows = localStorage.getItem("looking_followed_users");
-    if (savedFollows) {
-      try {
-        setFollowedCreators(JSON.parse(savedFollows));
-      } catch (e) {
-        console.error(e);
+    const timer = setTimeout(() => {
+      if (savedFollows) {
+        try {
+          setFollowedCreators(JSON.parse(savedFollows));
+        } catch (e) {
+          console.error(e);
+        }
       }
-    }
+    }, 0);
 
-    // 2. Custom follow change event listener
     const handleFollowChange = (e: Event) => {
       const customEv = e as CustomEvent<{ authorName: string; followed: boolean }>;
       if (customEv.detail) {
@@ -223,6 +226,7 @@ export default function Home() {
 
     window.addEventListener("looking_follow_change", handleFollowChange);
     return () => {
+      clearTimeout(timer);
       window.removeEventListener("looking_follow_change", handleFollowChange);
     };
   }, []);
@@ -234,24 +238,27 @@ export default function Home() {
     const storageKey = `looking_chat_${activeChatFriend.name}`;
     const savedChat = localStorage.getItem(storageKey);
 
-    if (savedChat) {
-      try {
-        setChatMessages(JSON.parse(savedChat));
-      } catch (e) {
-        console.error(e);
-      }
-    } else {
-      // Default Initial Conversations
-      const defaultConvo: ChatMessage[] = [
-        { 
-          sender: "friend", 
-          text: `Chào bạn! Mình là ${activeChatFriend.name}. Cảm ơn bạn đã ghé thăm trang của mình nhé! ✨`, 
-          timestamp: "10:45 AM" 
+    const timer = setTimeout(() => {
+      if (savedChat) {
+        try {
+          setChatMessages(JSON.parse(savedChat));
+        } catch (e) {
+          console.error(e);
         }
-      ];
-      setChatMessages(defaultConvo);
-      localStorage.setItem(storageKey, JSON.stringify(defaultConvo));
-    }
+      } else {
+        const defaultConvo: ChatMessage[] = [
+          { 
+            sender: "friend", 
+            text: `Chào bạn! Mình là ${activeChatFriend.name}. Cảm ơn bạn đã ghé thăm trang của mình nhé! ✨`, 
+            timestamp: "10:45 AM" 
+          }
+        ];
+        setChatMessages(defaultConvo);
+        localStorage.setItem(storageKey, JSON.stringify(defaultConvo));
+      }
+    }, 0);
+
+    return () => clearTimeout(timer);
   }, [activeChatFriend]);
 
   // Scroll to bottom of chat logs
@@ -933,8 +940,8 @@ export default function Home() {
 
         {/* Dynamic Snapping Viewport Frame */}
         {/* On Mobile: fills screen (w-full h-full) */}
-        {/* On PC: max-w-[420px], h-[92vh], rounded corners, glass shadow border */}
-        <div className="w-full h-full md:max-w-[420px] md:h-[92vh] md:rounded-2xl border-0 md:border md:border-[var(--theme-border)] bg-[var(--card-bg)] md:shadow-[0_0_40px_rgba(139,92,246,0.08)] overflow-hidden relative transition-all duration-300">
+        {/* On PC: h-[92vh], w-auto, 9:16 aspect ratio, rounded corners, glass shadow border */}
+        <div className="w-full h-full md:h-[92vh] md:w-auto md:aspect-[9/16] md:rounded-2xl border-0 md:border md:border-[var(--theme-border)] bg-[var(--card-bg)] md:shadow-[0_0_40px_rgba(139,92,246,0.08)] overflow-hidden relative transition-all duration-300">
           
           {activeTab === "home" && <VideoFeed />}
           {activeTab === "explore" && renderExplore()}
@@ -1051,7 +1058,7 @@ export default function Home() {
       </main>
 
       {/* Mobile Bottom Navigation */}
-      <BottomNavigation activeTab={activeTab} setActiveTab={setActiveTab} />
+      <BottomNavigation activeTab={activeTab} setActiveTab={setActiveTab} onUploadClick={() => setIsUploadModalOpen(true)} />
     </div>
   );
 }

@@ -5,7 +5,6 @@ import { Heart, MessageCircle, Share2, Music2, MoreHorizontal } from "lucide-rea
 import { VideoItem } from "../../types";
 import { VideoPlayer } from "./video-player";
 import { ShareDialog } from "./share-dialog";
-import { UI_LABELS } from "../../constants/labels";
 import { LIKE_INCREASE_STEP, INITIAL_COMMENTS_MAP } from "../../constants/video-data";
 
 interface VideoCardProps {
@@ -33,36 +32,38 @@ export function VideoCard({ video, isActive, onToggleComments }: VideoCardProps)
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [floatingHearts, setFloatingHearts] = useState<FloatingHeart[]>([]);
   const [isDescExpanded, setIsDescExpanded] = useState(false);
-  const [showFollowCheck, setShowFollowCheck] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   // Sync follow state and listen to events (follow & comments count update)
   useEffect(() => {
     const saved = localStorage.getItem("looking_followed_users");
-    if (saved) {
-      try {
-        const followedList: string[] = JSON.parse(saved);
-        if (followedList.includes(video.authorName)) {
-          setIsFollowed(true);
-        }
-      } catch (e) {
-        console.error("Failed to parse followed list from localStorage", e);
-      }
-    }
-
-    // Load actual comments count from localStorage to avoid hydration mismatch
     const storageKey = `cyberfeed_comments_${video.id}`;
     const savedComments = localStorage.getItem(storageKey);
-    if (savedComments) {
-      try {
-        const parsed = JSON.parse(savedComments);
-        if (Array.isArray(parsed)) {
-          setCommentsCount(parsed.length);
+
+    const timer = setTimeout(() => {
+      if (saved) {
+        try {
+          const followedList: string[] = JSON.parse(saved);
+          if (followedList.includes(video.authorName)) {
+            setIsFollowed(true);
+          }
+        } catch (e) {
+          console.error("Failed to parse followed list from localStorage", e);
         }
-      } catch (e) {
-        console.error(e);
       }
-    }
+
+      // Load actual comments count from localStorage to avoid hydration mismatch
+      if (savedComments) {
+        try {
+          const parsed = JSON.parse(savedComments);
+          if (Array.isArray(parsed)) {
+            setCommentsCount(parsed.length);
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    }, 0);
 
     const handleFollowEvent = (e: Event) => {
       const customEv = e as CustomEvent<{ authorName: string; followed: boolean }>;
@@ -82,6 +83,7 @@ export function VideoCard({ video, isActive, onToggleComments }: VideoCardProps)
     window.addEventListener("looking_comments_count_update", handleCommentsCountUpdate);
     
     return () => {
+      clearTimeout(timer);
       window.removeEventListener("looking_follow_change", handleFollowEvent);
       window.removeEventListener("looking_comments_count_update", handleCommentsCountUpdate);
     };
@@ -96,10 +98,11 @@ export function VideoCard({ video, isActive, onToggleComments }: VideoCardProps)
     );
   };
 
+  const heartIdCounterRef = React.useRef(0);
+
   const handleFollowToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
     setIsFollowed(true);
-    setShowFollowCheck(true);
 
     const saved = localStorage.getItem("looking_followed_users");
     let followedList: string[] = [];
@@ -121,16 +124,12 @@ export function VideoCard({ video, isActive, onToggleComments }: VideoCardProps)
         detail: { authorName: video.authorName, followed: true },
       })
     );
-
-    setTimeout(() => {
-      setShowFollowCheck(false);
-    }, 1200);
   };
 
   // Safe Double click likes handler triggered via VideoPlayer callbacks
   const handleVideoDoubleTap = (x: number, y: number) => {
     const newHeart: FloatingHeart = {
-      id: Date.now() + Math.random(),
+      id: heartIdCounterRef.current++,
       x,
       y,
     };
@@ -203,7 +202,7 @@ export function VideoCard({ video, isActive, onToggleComments }: VideoCardProps)
               transform: "translate(-50%, -50%)",
             }}
           >
-            <Heart className="w-16 h-16 text-brand-secondary fill-current drop-shadow-[0_0_10px_var(--brand-secondary)]" />
+            <Heart className="w-16 h-16 text-red-500 fill-current drop-shadow-[0_0_10px_rgba(239,68,68,0.6)]" />
           </div>
         ))}
 
@@ -295,7 +294,7 @@ export function VideoCard({ video, isActive, onToggleComments }: VideoCardProps)
             <div
               className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-300 ${
                 isLiked
-                  ? "bg-brand-secondary/20 border-brand-secondary text-brand-secondary"
+                  ? "bg-red-500/20 border-red-500 text-red-500"
                   : "bg-black/40 backdrop-blur-md border border-white/10 text-white hover:bg-white/10 group-hover:scale-105"
               }`}
             >
